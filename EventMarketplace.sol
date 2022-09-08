@@ -9,21 +9,22 @@ contract EVENTMarketplace is Ownable
     event log(string) ; 
     
     // CHANGE BELOW ADDRESS to the real one deployed token address 
-    EVENTToken public token = EVENTToken(0xD45968f99CE42C63b2eE728BF4CCF63c19166BC0) ;
+    EVENTToken public token;
     
     uint public constant tokensReward = 10 ; 
     uint public constant tokensPenalty = 20 ; 
 
-    struct buyer
+    struct Buyer
     {
         uint qtyBought ; 
         uint priceBought ; 
     }
 
-    buyer public thisBuyer ; 
+    Buyer public thisBuyer ; 
 
     struct Ticket 
-    {        
+    {
+        uint id;
         string Description ;
         uint maxBuyPerWallet ;
         uint originalPrice ; 
@@ -32,15 +33,15 @@ contract EVENTMarketplace is Ownable
         uint tokensPenaltyOverride ; 
         address seller ; 
         uint qtyAvailable ; 
-        mapping (address => buyer) buyers ; 
+        // mapping (address => buyer) buyers ; 
     }
         
     Ticket[] public tickets ; 
     Ticket public oneTicket ; 
 
-    mapping (address => mapping (address => buyer)) tks ; 
+    // mapping (address => Buyer[]) tks ; 
 
-    struct user 
+    struct User 
     {
         uint joinedOn ; // when user joined the platform, unix timestamp
         uint qtyTicketsPurchased ;
@@ -49,10 +50,12 @@ contract EVENTMarketplace is Ownable
         uint buyerRating ; 
     }
 
+    mapping (uint => Buyer[]) public ticketBuyers;   // ticketId => Buyers[]
+    mapping (address => User) public wallets ; 
 
-    mapping (address => user) public wallets ; 
 
-    constructor () Ownable(){
+    constructor (address _tokenAddress) Ownable(){
+        token = EVENTToken(_tokenAddress);
     }    
 
     function buy(uint _ticketID, uint _price, address _buyer, uint _qty) public returns (bool)
@@ -63,7 +66,8 @@ contract EVENTMarketplace is Ownable
         require ( _qty > 0 ) ; 
         require ( (tickets[_ticketID].qtyAvailable - _qty) >= 0 ) ; 
         require( _price >= tickets[_ticketID].askPrice ) ;
-        require ( (tickets[_ticketID].buyers[_buyer].qtyBought + _qty) <= tickets[_ticketID].maxBuyPerWallet ) ; 
+        //  TODO
+        // require ( (tickets[_ticketID].buyers[_buyer].qtyBought + _qty) <= tickets[_ticketID].maxBuyPerWallet ) ; 
         emit log("1"); 
 
         // selling price higher than original price --> penalize seller burning tokens  
@@ -105,8 +109,9 @@ contract EVENTMarketplace is Ownable
 
         // records the sell 
         tickets[_ticketID].qtyAvailable = tickets[_ticketID].qtyAvailable - _qty ; 
-        tickets[_ticketID].buyers[_buyer].qtyBought = tickets[_ticketID].buyers[_buyer].qtyBought + _qty ; 
-        tickets[_ticketID].buyers[_buyer].priceBought = _price ; 
+        //  TODO
+        // tickets[_ticketID].buyers[_buyer].qtyBought = tickets[_ticketID].buyers[_buyer].qtyBought + _qty ; 
+        // tickets[_ticketID].buyers[_buyer].priceBought = _price ; 
 
         // reward buyer with tokens for the current transaction 
         require( rewardBuyer(_buyer,_qty) ) ; 
@@ -176,7 +181,8 @@ contract EVENTMarketplace is Ownable
     }
 
 
-    function uploadTicket(string memory _Description, 
+    function uploadTicket(
+        string memory _Description, 
         uint  _maxBuyPerWallet,
         uint  _originalPrice, uint  _askPrice, uint  _tokensRewardOverride, 
         uint  _tokensPenaltyOverride,  
@@ -191,6 +197,7 @@ contract EVENTMarketplace is Ownable
         // "Metallica",2,250,300,30,30, 0xca35b7d915458ef540ade6068dfe2f44e8fa733c,100
 
 
+        oneTicket.id = tickets.length + 1;
         oneTicket.Description = _Description;
         oneTicket.maxBuyPerWallet = _maxBuyPerWallet;
         oneTicket.originalPrice = _originalPrice; 
@@ -200,8 +207,7 @@ contract EVENTMarketplace is Ownable
         oneTicket.seller = _seller; 
         oneTicket.qtyAvailable = _qtyAvailable; 
 
-        // Tuan !!!                   
-        // tickets.push(oneTicket) ; 
+        tickets.push(oneTicket) ; 
 
         // thisBuyer = buyer(100,50) ;
 
@@ -218,7 +224,9 @@ contract EVENTMarketplace is Ownable
 
     function  priceOfATicket(uint _ticketID, address _address) public view  returns (uint)
     { 
-        return  tickets[_ticketID].buyers[_address].priceBought ; 
+        //  TODO
+        return 0;
+        // return  tickets[_ticketID].buyers[_address].priceBought ; 
     }
 
 

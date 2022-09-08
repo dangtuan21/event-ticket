@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract EVENTToken is ERC20, Ownable 
 {
-    constructor (address deployedAddress) ERC20("Event Token", "EVENT") {
+    constructor () ERC20("Event Token", "EVENT") {
     }
 
     function burn(uint256 amount, address account) external {
