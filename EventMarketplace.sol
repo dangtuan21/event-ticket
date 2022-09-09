@@ -3,11 +3,10 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./EventToken.sol";
+import "hardhat/console.sol";
 
 contract EVENTMarketplace is Ownable
 {
-    event log(string) ; 
-    
     // CHANGE BELOW ADDRESS to the real one deployed token address 
     EVENTToken public token;
     
@@ -33,15 +32,21 @@ contract EVENTMarketplace is Ownable
         uint tokensPenaltyOverride ; 
         address seller ; 
         uint qtyAvailable ; 
-        // mapping (address => buyer) buyers ; 
+    }
+        
+    struct Trade
+    {
+        uint ticketId;
+        uint price ; 
+        uint tradeAt ;
+        address seller ; 
+        address buyer ; 
     }
         
     // Ticket[] public tickets ; 
     mapping(uint => Ticket) public tickets;
     Ticket public oneTicket ; 
     uint public ticketCount;
-
-    // mapping (address => Buyer[]) tks ; 
 
     struct User 
     {
@@ -50,6 +55,8 @@ contract EVENTMarketplace is Ownable
         uint qtyTicketsSold ; 
         uint sellerRating ; 
         uint buyerRating ; 
+        Trade[] purchasedTrades;
+        Trade[] soldTrades;
     }
 
     mapping (uint => Buyer[]) public ticketBuyers;   // ticketId => Buyers[]
@@ -62,69 +69,76 @@ contract EVENTMarketplace is Ownable
     }    
 
     function buy(uint _ticketID, uint _price, address _buyer, uint _qty) public returns (bool)
-    // 0, 300, 0x692a70d2e424a56d2c6c27aa97d1a86395877b3a, 3
     {
         // make sure there are enough tickets available to sell 
         require( tickets[_ticketID].qtyAvailable > 0, "Invalid available quantity" ) ;
         require ( _qty > 0, "Invalid buy quantity" ) ; 
         require ( (tickets[_ticketID].qtyAvailable - _qty) >= 0, "Not enough available quantity" ) ; 
-        require( _price >= tickets[_ticketID].askPrice, "Price is so cheap" ) ;
-        //  TODO
-        // require ( (tickets[_ticketID].buyers[_buyer].qtyBought + _qty) <= tickets[_ticketID].maxBuyPerWallet ) ; 
-        emit log("1"); 
+        require( _price >= tickets[_ticketID].askPrice, "Price does not meet askPrice" ) ;
+        //  TODO: later
+        // require ( (tickets[_ticketID].buyers[_buyer].qtyBought + _qty) <= tickets[_ticketID].maxBuyPerWallet ) ;         
 
         // selling price higher than original price --> penalize seller burning tokens  
         if (_price > tickets[_ticketID].originalPrice ) 
         {
             uint penalty ; 
-            emit log("2") ; 
             if (tokensPenalty > tickets[_ticketID].tokensPenaltyOverride )
                 penalty = tokensPenalty ; 
             else penalty = tickets[_ticketID].tokensPenaltyOverride ; 
 
             require (token.balanceOf(tickets[_ticketID].seller) > penalty, "Seller's token balance <= penalty" )  ;
-            emit log("3");   
             // tokens from seller are burnt
-            // Tuan
+            //  TODO: later
             // require (token.burn(penalty,tickets[_ticketID].seller)); 
             token.burn(penalty,tickets[_ticketID].seller);
-            emit log("4"); 
         }
 
         // selling price lower than original price --> reward seller w/ tokens 
         if (_price < tickets[_ticketID].originalPrice ) 
-        {
-            emit log("5"); 
-            
+        {            
             uint reward ; 
             if (tokensReward > tickets[_ticketID].tokensRewardOverride )  
                 reward = tokensReward ; 
             else reward = tickets[_ticketID].tokensRewardOverride ; 
-            // Tuan
+            //  TODO: later
             token.mint(tickets[_ticketID].seller,reward);
             // require (token.mint(tickets[_ticketID].seller,reward)); 
         }
 
         // selling price same as original price --> nothing happens 
-        if (_price == tickets[_ticketID].originalPrice ) { 
-            emit log("6"); 
-        }
+        // if (_price == tickets[_ticketID].originalPrice ) { 
+        // }
 
         // records the sell 
         tickets[_ticketID].qtyAvailable = tickets[_ticketID].qtyAvailable - _qty ; 
-        //  TODO
+
+        // ttt create ticket instance
+        Trade memory newTrade = Trade(
+            _ticketID,
+            _price,
+            block.timestamp,
+            tickets[_ticketID].seller,
+            _buyer
+        );
+
+        //  update purchasedTrades
+        wallets[_buyer].purchasedTrades.push(newTrade);
+        //  update soldTrades
+        wallets[tickets[_ticketID].seller].soldTrades.push(newTrade);
+
         // tickets[_ticketID].buyers[_buyer].qtyBought = tickets[_ticketID].buyers[_buyer].qtyBought + _qty ; 
         // tickets[_ticketID].buyers[_buyer].priceBought = _price ; 
 
         // reward buyer with tokens for the current transaction 
-        //  TODO
+        //  TODO: later
         // require( rewardBuyer(_buyer,_qty), "Fail to reward buyer" ) ; 
-        emit log ("7") ; 
 
         // updates user's wallets stats 
         wallets[_buyer].qtyTicketsPurchased = wallets[_buyer].qtyTicketsPurchased + _qty ; 
 
         wallets[tickets[_ticketID].seller].qtyTicketsSold = wallets[tickets[_ticketID].seller].qtyTicketsSold + _qty ; 
+
+
 
         return true  ; 
 
@@ -175,7 +189,7 @@ contract EVENTMarketplace is Ownable
     
         uint reward = wallets[_buyer].qtyTicketsPurchased + (2 * _qty) ; 
         reward = reward + (token.balanceOf(_buyer) * 2) ; 
-        //  Tuan
+        //  TODO: later
         token.mint(_buyer,reward);
         // require(token.mint(_buyer,reward));
 
@@ -218,20 +232,18 @@ contract EVENTMarketplace is Ownable
         // tickets[ticketsLength()-1].
         // buyers[0xCA35b7d915458EF540aDe6068dFe2F44E8fa733c] = thisBuyer ; 
 
-
+        console.log("Uploaded, oneTicket.id ", oneTicket.id);
         return oneTicket.id; 
     }
 
-    function  priceOfATicket(uint _ticketID, address _address) public view  returns (uint)
-    { 
-        //  TODO
-        return 0;
-        // return  tickets[_ticketID].buyers[_address].priceBought ; 
-    }
+    //  For later use
+    // function  priceOfATicket(uint _ticketID, address _address) public view  returns (uint)
+    // { 
+    //     return  tickets[_ticketID].buyers[_address].priceBought ; 
+    // }
 
 
     function userJoins(address _user) onlyOwner public returns(uint) { 
-        // wallets[_user].joinedOn = now ; 
         wallets[_user].joinedOn = block.timestamp; 
         return wallets[_user].joinedOn;
     } 
