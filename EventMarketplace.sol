@@ -36,8 +36,10 @@ contract EVENTMarketplace is Ownable
         // mapping (address => buyer) buyers ; 
     }
         
-    Ticket[] public tickets ; 
+    // Ticket[] public tickets ; 
+    mapping(uint => Ticket) public tickets;
     Ticket public oneTicket ; 
+    uint public ticketCount;
 
     // mapping (address => Buyer[]) tks ; 
 
@@ -56,16 +58,17 @@ contract EVENTMarketplace is Ownable
 
     constructor (address _tokenAddress) Ownable(){
         token = EVENTToken(_tokenAddress);
+        ticketCount = 0;
     }    
 
     function buy(uint _ticketID, uint _price, address _buyer, uint _qty) public returns (bool)
     // 0, 300, 0x692a70d2e424a56d2c6c27aa97d1a86395877b3a, 3
     {
         // make sure there are enough tickets available to sell 
-        require( tickets[_ticketID].qtyAvailable > 0 ) ;
-        require ( _qty > 0 ) ; 
-        require ( (tickets[_ticketID].qtyAvailable - _qty) >= 0 ) ; 
-        require( _price >= tickets[_ticketID].askPrice ) ;
+        require( tickets[_ticketID].qtyAvailable > 0, "Invalid available quantity" ) ;
+        require ( _qty > 0, "Invalid buy quantity" ) ; 
+        require ( (tickets[_ticketID].qtyAvailable - _qty) >= 0, "Not enough available quantity" ) ; 
+        require( _price >= tickets[_ticketID].askPrice, "Price is so cheap" ) ;
         //  TODO
         // require ( (tickets[_ticketID].buyers[_buyer].qtyBought + _qty) <= tickets[_ticketID].maxBuyPerWallet ) ; 
         emit log("1"); 
@@ -79,7 +82,7 @@ contract EVENTMarketplace is Ownable
                 penalty = tokensPenalty ; 
             else penalty = tickets[_ticketID].tokensPenaltyOverride ; 
 
-            require (token.balanceOf(tickets[_ticketID].seller) > penalty )  ;
+            require (token.balanceOf(tickets[_ticketID].seller) > penalty, "Seller's token balance <= penalty" )  ;
             emit log("3");   
             // tokens from seller are burnt
             // Tuan
@@ -114,14 +117,14 @@ contract EVENTMarketplace is Ownable
         // tickets[_ticketID].buyers[_buyer].priceBought = _price ; 
 
         // reward buyer with tokens for the current transaction 
-        require( rewardBuyer(_buyer,_qty) ) ; 
+        //  TODO
+        // require( rewardBuyer(_buyer,_qty), "Fail to reward buyer" ) ; 
         emit log ("7") ; 
 
         // updates user's wallets stats 
         wallets[_buyer].qtyTicketsPurchased = wallets[_buyer].qtyTicketsPurchased + _qty ; 
 
-        wallets[tickets[_ticketID].seller].qtyTicketsSold = 
-        wallets[tickets[_ticketID].seller].qtyTicketsSold + _qty ; 
+        wallets[tickets[_ticketID].seller].qtyTicketsSold = wallets[tickets[_ticketID].seller].qtyTicketsSold + _qty ; 
 
         return true  ; 
 
@@ -196,8 +199,8 @@ contract EVENTMarketplace is Ownable
         // "test",1,1,1,1,1, 0xca35b7d915458ef540ade6068dfe2f44e8fa733c,1
         // "Metallica",2,250,300,30,30, 0xca35b7d915458ef540ade6068dfe2f44e8fa733c,100
 
-
-        oneTicket.id = tickets.length + 1;
+        ticketCount ++;
+        oneTicket.id = ticketCount;
         oneTicket.Description = _Description;
         oneTicket.maxBuyPerWallet = _maxBuyPerWallet;
         oneTicket.originalPrice = _originalPrice; 
@@ -207,7 +210,8 @@ contract EVENTMarketplace is Ownable
         oneTicket.seller = _seller; 
         oneTicket.qtyAvailable = _qtyAvailable; 
 
-        tickets.push(oneTicket) ; 
+        // tickets.push(oneTicket) ; 
+        tickets[oneTicket.id] = oneTicket;
 
         // thisBuyer = buyer(100,50) ;
 
@@ -215,11 +219,7 @@ contract EVENTMarketplace is Ownable
         // buyers[0xCA35b7d915458EF540aDe6068dFe2F44E8fa733c] = thisBuyer ; 
 
 
-        return (tickets.length -1) ; 
-    }
-
-    function ticketsLength() public view returns (uint) { 
-        return tickets.length ; 
+        return oneTicket.id; 
     }
 
     function  priceOfATicket(uint _ticketID, address _address) public view  returns (uint)
